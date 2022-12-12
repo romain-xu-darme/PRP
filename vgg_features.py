@@ -3,6 +3,8 @@
 
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
+from lrp_general6 import get_lrpwrapperformodule, bnafterconv_overwrite_intoconv, resetbn
+import copy
 
 model_urls = {
     'vgg11': 'https://download.pytorch.org/models/vgg11-bbd30ac9.pth',
@@ -272,28 +274,133 @@ def vgg19_bn_features(pretrained=False, **kwargs):
     return model
 
 
-if __name__ == '__main__':
+class VGGCanonized(VGG_features):
 
-    vgg11_f = vgg11_features(pretrained=True)
-    print(vgg11_f)
+    def __init__(self, config, batch_norm, pretrained=False):
+        super(VGGCanonized, self).__init__(config, batch_norm)
 
-    vgg11_bn_f = vgg11_bn_features(pretrained=True)
-    print(vgg11_bn_f)
+    def setbyname(self, name, value) -> bool:
+        """ Find and replace attribute inside this object
 
-    vgg13_f = vgg13_features(pretrained=True)
-    print(vgg13_f)
+        :param name: Attribute name
+        :param value: Attibute value
+        :returns: True if attribute was found and replaced, False otherwise
+        """
+        def iteratset(obj, components, value) -> bool:
 
-    vgg13_bn_f = vgg13_bn_features(pretrained=True)
-    print(vgg13_bn_f)
+            if not hasattr(obj, components[0]):
+                return False
+            elif len(components) == 1:
+                setattr(obj, components[0], value)
+                return True
+            else:
+                nextobj = getattr(obj, components[0])
+                return iteratset(nextobj, components[1:], value)
 
-    vgg16_f = vgg16_features(pretrained=True)
-    print(vgg16_f)
+        components = name.split('.')
+        success = iteratset(self, components, value)
+        return success
 
-    vgg16_bn_f = vgg16_bn_features(pretrained=True)
-    print(vgg16_bn_f)
+    def copyfrom(self, net, lrp_params, lrp_layer2method):
+        """ Copy layer parameters and wrap everything for LRP
 
-    vgg19_f = vgg19_features(pretrained=True)
-    print(vgg19_f)
+        :param net: Source network
+        :param lrp_params: LRP rules
+        :param lrp_layer2method: Replacement layers
+        """
+        class Modulenotfounderror(Exception):
+            pass
 
-    vgg19_bn_f = vgg19_bn_features(pretrained=True)
-    print(vgg19_bn_f)
+        updated_layers_names = []
+
+        last_src_module_name = None
+        last_src_module = None
+
+        for src_module_name, src_module in net.named_modules():
+            if isinstance(src_module, nn.Linear):
+                # copy linear layers
+                wrapped = get_lrpwrapperformodule(copy.deepcopy(src_module), lrp_params, lrp_layer2method)
+                if not self.setbyname(src_module_name, wrapped):
+                    raise Modulenotfounderror("could not find module " + src_module_name + " in target net to copy")
+                updated_layers_names.append(src_module_name)
+
+            if isinstance(src_module, nn.Conv2d):
+                last_src_module_name = src_module_name
+                last_src_module = src_module
+
+            if isinstance(src_module, nn.BatchNorm2d):
+                # Detect input convolution
+                thisis_inputconv_andiwant_zbeta = lrp_params['use_zbeta'] and (last_src_module_name == 'features.0')
+                # Wrap convolution
+                m = copy.deepcopy(last_src_module)
+                m = bnafterconv_overwrite_intoconv(m, bn=src_module)
+                wrapped = get_lrpwrapperformodule(m, lrp_params, lrp_layer2method,
+                                                  thisis_inputconv_andiwant_zbeta=thisis_inputconv_andiwant_zbeta)
+                if not self.setbyname(last_src_module_name, wrapped):
+                    raise Modulenotfounderror(
+                        "could not find module " + last_src_module_name + " in target net to copy")
+                updated_layers_names.append(last_src_module_name)
+
+                # Wrap batchnorm
+                wrapped = get_lrpwrapperformodule(resetbn(src_module), lrp_params, lrp_layer2method)
+                if not self.setbyname(src_module_name, wrapped):
+                    raise Modulenotfounderror("could not find module " + src_module_name + " in target net to copy")
+                updated_layers_names.append(src_module_name)
+
+            if isinstance(src_module, nn.ReLU):
+                # Detect input convolution
+                thisis_inputconv_andiwant_zbeta = lrp_params['use_zbeta'] and (last_src_module_name == 'features.0')
+                # Wrap convolution
+                m = copy.deepcopy(last_src_module)
+                wrapped = get_lrpwrapperformodule(m, lrp_params, lrp_layer2method,
+                                                  thisis_inputconv_andiwant_zbeta=thisis_inputconv_andiwant_zbeta)
+                print("here")
+                if not self.setbyname(last_src_module_name, wrapped):
+                    raise Modulenotfounderror(
+                        "could not find module " + last_src_module_name + " in target net to copy")
+                updated_layers_names.append(last_src_module_name)
+
+        # Wrapped activation and pooling layers
+        for target_module_name, target_module in self.named_modules():
+            if isinstance(target_module, (nn.ReLU, nn.AdaptiveAvgPool2d, nn.MaxPool2d)):
+                wrapped = get_lrpwrapperformodule(target_module, lrp_params, lrp_layer2method)
+                if not self.setbyname(target_module_name, wrapped):
+                    raise Modulenotfounderror("could not find module " + target_module_name + " in target net to copy")
+                updated_layers_names.append(target_module_name)
+
+        for target_module_name, target_module in self.named_modules():
+            if target_module_name not in updated_layers_names:
+                if not target_module_name.endswith('.module'):
+                    print('not updated:', target_module_name)
+
+
+def vgg11_canonized(**kwargs):
+    return VGGCanonized(cfg['A'], batch_norm=False)
+
+
+def vgg11_bn_canonized(**kwargs):
+    return VGGCanonized(cfg['A'], batch_norm=True)
+
+
+def vgg13_canonized(**kwargs):
+    return VGGCanonized(cfg['B'], batch_norm=False)
+
+
+def vgg13_bn_canonized(**kwargs):
+    return VGGCanonized(cfg['B'], batch_norm=True)
+
+
+def vgg16_canonized(**kwargs):
+    return VGGCanonized(cfg['D'], batch_norm=False)
+
+
+def vgg16_bn_canonized(**kwargs):
+    return VGGCanonized(cfg['D'], batch_norm=True)
+
+
+def vgg19_canonized(**kwargs):
+    return VGGCanonized(cfg['E'], batch_norm=False)
+
+
+def vgg19_bn_canonized(**kwargs):
+    return VGGCanonized(cfg['E'], batch_norm=True)
