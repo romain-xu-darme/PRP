@@ -10,17 +10,15 @@ Code built upon LRP code from https://github.com/AlexBinder/LRP_Pytorch_Resnets_
 
 from __future__ import print_function, division
 
-from torchvision import datasets
-
 try:
     from torch.hub import load_state_dict_from_url
 except ImportError:
     from torch.utils.model_zoo import load_url as load_state_dict_from_url
 
-from resnet_features import *
-from vgg_features import *
-from heatmaphelpers import *
-from lrp_general6 import *
+from .resnet_features import *
+from .vgg_features import *
+from .heatmaphelpers import *
+from .lrp_general6 import *
 
 class addon_canonized(nn.Module):
 
@@ -37,39 +35,6 @@ class addon_canonized(nn.Module):
 def _addon_canonized(pretrained=False, progress=True, **kwargs):
     model = addon_canonized()
     return model
-
-class sum_lrp(torch.autograd.Function):
-    @staticmethod
-    def forward(ctx, x):
-        ctx.save_for_backward(x)  # *values unpacks the list
-
-        print('ctx.needs_input_grad', ctx.needs_input_grad)
-        # exit()
-        print('sum custom forward')
-        return torch.sum(x, dim=(1, 2, 3))
-
-    @staticmethod
-    def backward(ctx, grad_output):
-        """
-        In the backward pass we receive a Tensor containing the gradient of the loss
-        with respect to the output, and we need to compute the gradient of the loss
-        with respect to the input.
-        """
-
-        # print('len(grad_output)',len(grad_output),grad_output[0].shape)
-
-        input_ = ctx.saved_tensors
-        X = input_.clone().detach().requires_grad_(True)
-        # R= lrp_backward(_input= X , layer = layerclass , relevance_output = grad_output[0], eps0 = 1e-12, eps=0)
-        with torch.enable_grad():
-            Z = torch.sum(X, dim=(1, 2, 3))
-        relevance_output_data = grad_output[0].clone().detach().unsqueeze(0)
-        # Z.backward(relevance_output_data)
-        # R = X.grad
-        R = relevance_output_data * X / Z
-        # print('sum R', R.shape)
-        # exit()
-        return R, None
 
 
 def generate_prp_all(dataloader, model, foldername, device):
@@ -136,24 +101,6 @@ def generate_prp_image(inputs, pno, model, device):
     return prp
 
 
-
-
-class ImageFolderWithPaths(datasets.ImageFolder):
-    """Custom dataset that includes image file paths. Extends
-    torchvision.datasets.ImageFolder
-    """
-
-    # override the __getitem__ method. this is the method that dataloader calls
-    def __getitem__(self, index):
-        # this is what ImageFolder normally returns
-        original_tuple = super(ImageFolderWithPaths, self).__getitem__(index)
-        # the image file path
-        path = self.imgs[index][0]
-        # make a new tuple that includes original and the path
-        tuple_with_path = (original_tuple + (path,))
-        return tuple_with_path
-
-
 def heatmap(R, sx, sy, name):
     # b = 10*np.abs(R).mean()
     b = 10 * ((np.abs(R) ** 3.0).mean() ** (1.0 / 3))
@@ -209,7 +156,7 @@ base_architecture_to_features = {'resnet18': resnet18_canonized,
 
 
 
-def PRPCanonizedModel(ppnet,base_arch):
+def prp_canonize_model(ppnet,base_arch):
 
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -239,13 +186,6 @@ def PRPCanonizedModel(ppnet,base_arch):
     model.copyfrom(ppnet.features, lrp_params=lrp_params_def1, lrp_layer2method=lrp_layer2method)
     model = model.to(device)
     ppnet.features = model
-
-    # add_on_layers = nn.Sequential(
-    #     nn.Conv2d(in_channels=512, out_channels=128, kernel_size=1),
-    #     nn.ReLU(),
-    #     nn.Conv2d(in_channels=128, out_channels=128, kernel_size=1),
-    #     nn.Sigmoid()
-    # )
 
     conv_layer1 = nn.Conv2d(ppnet.prototype_shape[1], ppnet.prototype_shape[0], kernel_size=1, bias=False).to(device)
     conv_layer1.weight.data = ppnet.ones
