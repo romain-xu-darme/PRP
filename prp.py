@@ -156,9 +156,7 @@ base_architecture_to_features = {'resnet18': resnet18_canonized,
 
 
 
-def prp_canonize_model(ppnet,base_arch):
-
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+def prp_canonize_model(ppnet,base_arch, device):
 
     model = base_architecture_to_features[base_arch](pretrained=False)
     model = model.to(device)
@@ -233,5 +231,5 @@ def prp_canonize_model(ppnet,base_arch):
     ppnet.conv_layer2 = conv_layer2
     ppnet.relu_layer = relu_layer
     ppnet.last_layer = last_layer
-
+    ppnet.canonized = True
     return ppnet

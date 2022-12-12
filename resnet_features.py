@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
 import copy
-from lrp_general6 import sum_stacked2, get_lrpwrapperformodule, bnafterconv_overwrite_intoconv, resetbn
+from .lrp_general6 import sum_stacked2, get_lrpwrapperformodule, bnafterconv_overwrite_intoconv, resetbn
 
 model_urls = {
     'resnet18': 'https://download.pytorch.org/models/resnet18-5c106cde.pth',

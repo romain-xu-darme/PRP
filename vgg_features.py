@@ -3,7 +3,7 @@
 
 import torch.nn as nn
 import torch.utils.model_zoo as model_zoo
-from lrp_general6 import get_lrpwrapperformodule, bnafterconv_overwrite_intoconv, resetbn
+from .lrp_general6 import get_lrpwrapperformodule, bnafterconv_overwrite_intoconv, resetbn
 import copy
 
 model_urls = {
