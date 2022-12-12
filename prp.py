@@ -10,7 +10,7 @@ Code built upon LRP code from https://github.com/AlexBinder/LRP_Pytorch_Resnets_
 
 from __future__ import print_function, division
 
-from torchvision import datasets, models, transforms
+from torchvision import datasets
 
 try:
     from torch.hub import load_state_dict_from_url
@@ -20,7 +20,6 @@ except ImportError:
 from resnet_features import *
 from vgg_features import *
 from heatmaphelpers import *
-
 from lrp_general6 import *
 
 class addon_canonized(nn.Module):
@@ -37,8 +36,6 @@ class addon_canonized(nn.Module):
 
 def _addon_canonized(pretrained=False, progress=True, **kwargs):
     model = addon_canonized()
-    # if pretrained:
-    #     raise Cannotloadmodelweightserror("explainable nn model wrapper was never meant to load dictionary weights, load into standard model first, then instatiate this class from the standard model")
     return model
 
 class sum_lrp(torch.autograd.Function):
@@ -243,12 +240,12 @@ def PRPCanonizedModel(ppnet,base_arch):
     model = model.to(device)
     ppnet.features = model
 
-    add_on_layers = nn.Sequential(
-        nn.Conv2d(in_channels=512, out_channels=128, kernel_size=1),
-        nn.ReLU(),
-        nn.Conv2d(in_channels=128, out_channels=128, kernel_size=1),
-        nn.Sigmoid()
-    )
+    # add_on_layers = nn.Sequential(
+    #     nn.Conv2d(in_channels=512, out_channels=128, kernel_size=1),
+    #     nn.ReLU(),
+    #     nn.Conv2d(in_channels=128, out_channels=128, kernel_size=1),
+    #     nn.Sigmoid()
+    # )
 
     conv_layer1 = nn.Conv2d(ppnet.prototype_shape[1], ppnet.prototype_shape[0], kernel_size=1, bias=False).to(device)
     conv_layer1.weight.data = ppnet.ones
@@ -273,17 +270,14 @@ def PRPCanonizedModel(ppnet,base_arch):
     add_on_layers = _addon_canonized()
     for src_module_name, src_module in ppnet.add_on_layers.named_modules():
         if isinstance(src_module, nn.Conv2d):
-            print(hasattr(add_on_layers.addon, src_module_name))
             wrapped = get_lrpwrapperformodule(copy.deepcopy(src_module), lrp_params_def1, lrp_layer2method)
             setbyname(add_on_layers.addon, src_module_name, wrapped)
 
         if isinstance(src_module, nn.ReLU):
-            print(hasattr(add_on_layers.addon, src_module_name))
             wrapped = get_lrpwrapperformodule(copy.deepcopy(src_module), lrp_params_def1, lrp_layer2method)
             setbyname(add_on_layers.addon, src_module_name, wrapped)
 
         if isinstance(src_module, nn.Sigmoid):
-            print(hasattr(add_on_layers.addon, src_module_name))
             wrapped = get_lrpwrapperformodule(copy.deepcopy(src_module), lrp_params_def1, lrp_layer2method)
             setbyname(add_on_layers.addon, src_module_name, wrapped)
 
@@ -301,8 +295,3 @@ def PRPCanonizedModel(ppnet,base_arch):
     ppnet.last_layer = last_layer
 
     return ppnet
-
-
-
-
-
