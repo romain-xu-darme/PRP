@@ -121,7 +121,7 @@ def get_lrpwrapperformodule(module, lrp_params, lrp_layer2method, thisis_inputco
     autogradfunction = lrp_layer2method[key]()
     return oneparam_wrapper_class( module , autogradfunction = autogradfunction, parameter1 = lrp_params['linear_eps'] )
 
-  elif isinstance(module, nn.Conv2d): 
+  elif isinstance(module, nn.Conv2d):
     if True== thisis_inputconv_andiwant_zbeta:
       return conv2d_zbeta_wrapper_class(module , lrp_params['conv2d_ignorebias'])
     else:
@@ -155,8 +155,8 @@ def get_lrpwrapperformodule(module, lrp_params, lrp_layer2method, thisis_inputco
     #default adaptiveavgpool2d_wrapper_fct()
     autogradfunction = lrp_layer2method[key]()
     return oneparam_wrapper_class( module , autogradfunction = autogradfunction, parameter1 = lrp_params['pooling_eps'] )
-    
-    
+
+
   elif isinstance(module, nn.MaxPool2d):
 
       key='nn.MaxPool2d'
@@ -180,7 +180,7 @@ def get_lrpwrapperformodule(module, lrp_params, lrp_layer2method, thisis_inputco
     #default eltwisesum_stacked2_eps_wrapper_fct()
     autogradfunction = lrp_layer2method[key]()
     return oneparam_wrapper_class( module , autogradfunction = autogradfunction, parameter1 = lrp_params['eltwise_eps'] )
-  
+
   elif isinstance(module, clamplayer): # densenet specific
 
     key='clamplayer'
@@ -192,8 +192,8 @@ def get_lrpwrapperformodule(module, lrp_params, lrp_layer2method, thisis_inputco
     autogradfunction = lrp_layer2method[key]()
     return zeroparam_wrapper_class( module , autogradfunction = autogradfunction)
 
-  elif isinstance(module, tensorbiased_linearlayer): # densenet specific 
-       
+  elif isinstance(module, tensorbiased_linearlayer): # densenet specific
+
     key='tensorbiased_linearlayer'
     if key not in lrp_layer2method:
       print("found no dictionary entry in lrp_layer2method for this module name:", key)
@@ -203,8 +203,8 @@ def get_lrpwrapperformodule(module, lrp_params, lrp_layer2method, thisis_inputco
     autogradfunction = lrp_layer2method[key]()
     return oneparam_wrapper_class( module , autogradfunction = autogradfunction, parameter1 = lrp_params['linear_eps'] )
 
-  elif isinstance(module, tensorbiased_convlayer): # densenet specific 
-       
+  elif isinstance(module, tensorbiased_convlayer): # densenet specific
+
     key='tensorbiased_convlayer'
     if key not in lrp_layer2method:
       print("found no dictionary entry in lrp_layer2method for this module name:", key)
@@ -223,7 +223,7 @@ def get_lrpwrapperformodule(module, lrp_params, lrp_layer2method, thisis_inputco
 
     #default maxpool2d_wrapper_fct()
     autogradfunction = lrp_layer2method[key]()
-    return zeroparam_wrapper_class( module , autogradfunction = autogradfunction ) 
+    return zeroparam_wrapper_class( module , autogradfunction = autogradfunction )
     print("found no lookup for this module:", module)
     raise lrplookupnotfounderror( "found no lookup for this module:", module)
 
@@ -261,10 +261,6 @@ def resetbn(bn):
 
 #vanilla fusion conv-bn --> conv(updatedparams)
 def bnafterconv_overwrite_intoconv(conv,bn): #after visatt
-
-        
-    print(conv,bn)
-
     assert (isinstance(bn,nn.BatchNorm2d))
     assert (isinstance(conv,nn.Conv2d))
 
@@ -308,7 +304,7 @@ def getclamplayer(bn):
         clamplay = clamplayer_const( thresh ,  forconv = True  )
       else:
         thresh = bias_bn     # never activated always fires the bias
-        spec = True     
+        spec = True
         clamplay = clamplayer_const( thresh ,  forconv = True  )
 
     return clamplay
@@ -316,10 +312,10 @@ def getclamplayer(bn):
 
 # for fusion of bn-conv into conv with tensor shaped bias
 def convafterbn_returntensorbiasedconv(conv,bn): #after visatt
-    
+
     # y= w_{bn} (x-mu_{bn}) / vareps + b_{bn}
     # y= w_{bn} / vareps  x   -  w_{bn} / vareps * mu_{bn} + b_{bn}
-    # conv(y) = w y +b =   w ( w_{bn} / vareps) x    + w (  -  w_{bn} / vareps * mu_{bn} + b_{bn}  )  +b 
+    # conv(y) = w y +b =   w ( w_{bn} / vareps) x    + w (  -  w_{bn} / vareps * mu_{bn} + b_{bn}  )  +b
     #   conv(y) =   w ( w_{bn} / vareps).reshape((-1,1,1,1)) x  + conv ( -  w_{bn} / vareps * mu_{bn} + b_{bn}  )
     # the latter as bias for  mu_{bn},  b_{bn} as ksize shaped tensors
 
@@ -350,8 +346,8 @@ def convafterbn_returntensorbiasedconv(conv,bn): #after visatt
         prebias= conv( inputfornewbias2 )
       # in case of padding, the result might be not (1,nch,1,1)
       mi = ( ( prebias.shape[2]-1)//2 , ( prebias.shape[3]-1)//2 )
-      prebias= prebias.clone().detach() 
-      newconv_bias=   prebias[0,:,mi[0],mi[1]] 
+      prebias= prebias.clone().detach()
+      newconv_bias=   prebias[0,:,mi[0],mi[1]]
 
       conv2=copy.deepcopy(conv)
       conv2.weight =  torch.nn.Parameter( newweight )
@@ -430,13 +426,13 @@ class clamplayer(nn.Module):
 
   def forward(self,x):
     # for channels c with w_bn > 0  -- as checked by (self.w_bn_sign>0)
-    # return (x- self.thresh ) * (x>self.thresh) +  self.thresh 
+    # return (x- self.thresh ) * (x>self.thresh) +  self.thresh
     #
     # for channels c with w_bn < 0
     # return thresh if (x>=self.thresh), x  if (x < self. thresh)
-    # return (x- self.thresh ) * (x<self.thresh) +  self.thresh 
- 
-    return (x- self.thresh ) * ( (x>self.thresh)* (self.w_bn_sign>0)   + (x<self.thresh)* (self.w_bn_sign<0)  ) +  self.thresh 
+    # return (x- self.thresh ) * (x<self.thresh) +  self.thresh
+
+    return (x- self.thresh ) * ( (x>self.thresh)* (self.w_bn_sign>0)   + (x<self.thresh)* (self.w_bn_sign<0)  ) +  self.thresh
 
 
 
@@ -484,7 +480,7 @@ class  tensorbiased_convlayer(nn.Module):
 
     with torch.no_grad():
       tensorbias= self.baseconv(  self.inputfornewbias.unsqueeze(1).unsqueeze(2).repeat((1, x.shape[2] , x.shape[3])).unsqueeze(0)  )
-    print('done tensorbias', tensorbias.shape)    
+    print('done tensorbias', tensorbias.shape)
     return tensorbias
 
   def forward(self,x):
@@ -492,19 +488,19 @@ class  tensorbiased_convlayer(nn.Module):
     print('tensorbias fwd', x.shape)
     if len(x.shape)!=4:
       print('bad tensor length')
-      exit()  
+      exit()
     if self.inputfornewbias is not None:
       print ( 'self.inputfornewbias.shape',self.inputfornewbias.shape)
     else:
       print ( 'self.inputfornewbias',self.inputfornewbias)
-    #z= self.conv.forward(x) 
+    #z= self.conv.forward(x)
     #print('z.shape',z.shape)
     if self.inputfornewbias is  None:
       return self.conv.forward(x) #z
     else:
       b= self.gettensorbias(x)
       if self.biasmode=='neutr':
-        #z+=b 
+        #z+=b
         return self.conv.forward(x) +b
       elif self.biasmode=='pos':
         #z+= torch.clamp(b,min=0)
@@ -557,13 +553,13 @@ class conv2d_beta0_wrapper_fct(torch.autograd.Function):
               # convert it into tensor
               # has no treatment for booleans yet
               if isinstance(v, int):
-                v=  torch.tensor([v], dtype=torch.int32, device= module.weight.device) 
+                v=  torch.tensor([v], dtype=torch.int32, device= module.weight.device)
               elif isinstance(v, tuple):
                 ################
                 ################
                 # FAILMODE: if it is not a tuple of ints but e.g. a tuple of floats, or a tuple of a tuple
-    
-                v= torch.tensor(v, dtype=torch.int32, device= module.weight.device)     
+
+                v= torch.tensor(v, dtype=torch.int32, device= module.weight.device)
               else:
                 print('v is neither int nor tuple. unexpected')
                 exit()
@@ -595,14 +591,14 @@ class conv2d_beta0_wrapper_fct(torch.autograd.Function):
         with respect to the output, and we need to compute the gradient of the loss
         with respect to the input.
         """
-        
+
         #print('len(grad_output)',len(grad_output),grad_output[0].shape)
 
         input_, conv2dweight, conv2dbias, lrpignorebiastensor, *values  = ctx.saved_tensors
         #print('retrieved', len(values))
         #######################################################################
         # reconstruct dictionary of config parameters
-        def tensorlist_todict(values): 
+        def tensorlist_todict(values):
             propertynames=['in_channels', 'out_channels', 'kernel_size', 'stride', 'padding', 'dilation', 'groups']
             # idea: paramsdict={ n: values[i]  for i,n in enumerate(propertynames)  } # but needs to turn tensors to ints or tuples!
             paramsdict={}
@@ -626,7 +622,7 @@ class conv2d_beta0_wrapper_fct(torch.autograd.Function):
         else:
           module=nn.Conv2d( **paramsdict, bias=True )
           module.bias= torch.nn.Parameter(conv2dbias)
-                
+
         #print('conv2dconstr')
         module.weight= torch.nn.Parameter(conv2dweight)
 
@@ -670,13 +666,13 @@ class conv2d_zbeta_wrapper_fct(torch.autograd.Function):
               # convert it into tensor
               # has no treatment for booleans yet
               if isinstance(v, int):
-                v=  torch.tensor([v], dtype=torch.int32, device= module.weight.device) 
+                v=  torch.tensor([v], dtype=torch.int32, device= module.weight.device)
               elif isinstance(v, tuple):
                 ################
                 ################
                 # FAILMODE: if it is not a tuple of ints but e.g. a tuple of floats, or a tuple of a tuple
-    
-                v= torch.tensor(v, dtype=torch.int32, device= module.weight.device)     
+
+                v= torch.tensor(v, dtype=torch.int32, device= module.weight.device)
               else:
                 print('v is neither int nor tuple. unexpected')
                 exit()
@@ -708,14 +704,14 @@ class conv2d_zbeta_wrapper_fct(torch.autograd.Function):
         with respect to the output, and we need to compute the gradient of the loss
         with respect to the input.
         """
-        
+
         #print('len(grad_output)',len(grad_output),grad_output[0].shape)
 
         input_, conv2dweight, conv2dbias, lrpignorebiastensor, lowest_, highest_, *values  = ctx.saved_tensors
         #print('retrieved', len(values))
         #######################################################################
         # reconstruct dictionary of config parameters
-        def tensorlist_todict(values): 
+        def tensorlist_todict(values):
             propertynames=['in_channels', 'out_channels', 'kernel_size', 'stride', 'padding', 'dilation', 'groups']
             # idea: paramsdict={ n: values[i]  for i,n in enumerate(propertynames)  } # but needs to turn tensors to ints or tuples!
             paramsdict={}
@@ -739,7 +735,7 @@ class conv2d_zbeta_wrapper_fct(torch.autograd.Function):
         else:
           module=nn.Conv2d( **paramsdict, bias=True )
           module.bias= torch.nn.Parameter(conv2dbias)
-                
+
         #print('conv2dconstr')
         module.weight= torch.nn.Parameter(conv2dweight)
 
@@ -756,7 +752,7 @@ class conv2d_zbeta_wrapper_fct(torch.autograd.Function):
         H = (highest_ * torch.ones_like(X)).requires_grad_(True)
 
         with torch.enable_grad():
-            Z = any_conv.forward(mode='justasitis', x=X) - any_conv.forward(mode='pos', x=L) - any_conv.forward(mode='neg', x=H) 
+            Z = any_conv.forward(mode='justasitis', x=X) - any_conv.forward(mode='pos', x=L) - any_conv.forward(mode='neg', x=H)
             S = safe_divide(grad_output[0].clone().detach(), Z.clone().detach(), eps0=1e-6, eps=1e-6)
             Z.backward(S)
             R = (X * X.grad + L * L.grad + H * H.grad).detach()
@@ -793,13 +789,13 @@ class adaptiveavgpool2d_wrapper_fct(torch.autograd.Function):
               # convert it into tensor
               # has no treatment for booleans yet
               if isinstance(v, int):
-                v=  torch.tensor([v], dtype=torch.int32, device= device) 
+                v=  torch.tensor([v], dtype=torch.int32, device= device)
               elif isinstance(v, tuple):
                 ################
                 ################
                 # FAILMODE: if it is not a tuple of ints but e.g. a tuple of floats, or a tuple of a tuple
-    
-                v= torch.tensor(v, dtype=torch.int32, device= device)     
+
+                v= torch.tensor(v, dtype=torch.int32, device= device)
               else:
                 print('v is neither int nor tuple. unexpected')
                 exit()
@@ -810,7 +806,7 @@ class adaptiveavgpool2d_wrapper_fct(torch.autograd.Function):
 
         #stash module config params and trainable params
         propertynames,values=configvalues_totensorlist(module,x.device)
-        epstensor = torch.tensor([eps], dtype=torch.float32, device= x.device) 
+        epstensor = torch.tensor([eps], dtype=torch.float32, device= x.device)
         ctx.save_for_backward(x, epstensor, *values ) # *values unpacks the list
 
         # print('ctx.needs_input_grad',ctx.needs_input_grad)
@@ -825,14 +821,14 @@ class adaptiveavgpool2d_wrapper_fct(torch.autograd.Function):
         with respect to the output, and we need to compute the gradient of the loss
         with respect to the input.
         """
-        
+
         #print('len(grad_output)',len(grad_output),grad_output[0].shape)
 
         input_, epstensor, *values  = ctx.saved_tensors
         # print('retrieved', len(values))
         #######################################################################
         # reconstruct dictionary of config parameters
-        def tensorlist_todict(values): 
+        def tensorlist_todict(values):
             propertynames=['output_size']
             # idea: paramsdict={ n: values[i]  for i,n in enumerate(propertynames)  } # but needs to turn tensors to ints or tuples!
             paramsdict={}
@@ -917,7 +913,7 @@ class maxpool2d_wrapper_fct(torch.autograd.Function):
 
         # print('ctx.needs_input_grad', ctx.needs_input_grad)
         # exit()
-        print('maxpool2d custom forward')
+        #print('maxpool2d custom forward')
         return module.forward(x)
 
     @staticmethod
@@ -1201,16 +1197,16 @@ class relu_wrapper_fct(torch.autograd.Function): # to be used with generic_activ
         #input_, conv2dweight, conv2dbias, *values  = ctx.saved_tensors
         #######################################################################
         # reconstruct dictionary of config parameters
-        def tensorlist_todict(values): 
+        def tensorlist_todict(values):
             propertynames=[]
             paramsdict={}
             return paramsdict
         #######################################################################
         #paramsdict=tensorlist_todict(values)
         return grad_output,None
-    
-    
-    
+
+
+
 class sigmoid_wrapper_fct(torch.autograd.Function): # to be used with generic_activation_pool_wrapper_class(module,this)
     """
     We can implement our own custom autograd Functions by subclassing
@@ -1234,7 +1230,7 @@ class sigmoid_wrapper_fct(torch.autograd.Function): # to be used with generic_ac
         #input_, conv2dweight, conv2dbias, *values  = ctx.saved_tensors
         #######################################################################
         # reconstruct dictionary of config parameters
-        def tensorlist_todict(values): 
+        def tensorlist_todict(values):
             propertynames=[]
             paramsdict={}
             return paramsdict
@@ -1269,13 +1265,13 @@ class linearlayer_eps_wrapper_fct(torch.autograd.Function):
               # convert it into tensor
               # has no treatment for booleans yet
               if isinstance(v, int):
-                v=  torch.tensor([v], dtype=torch.int32, device= module.weight.device) 
+                v=  torch.tensor([v], dtype=torch.int32, device= module.weight.device)
               elif isinstance(v, tuple):
                 ################
                 ################
                 # FAILMODE: if it is not a tuple of ints but e.g. a tuple of floats, or a tuple of a tuple
-    
-                v= torch.tensor(v, dtype=torch.int32, device= module.weight.device)     
+
+                v= torch.tensor(v, dtype=torch.int32, device= module.weight.device)
               else:
                 print('v is neither int nor tuple. unexpected')
                 exit()
@@ -1286,7 +1282,7 @@ class linearlayer_eps_wrapper_fct(torch.autograd.Function):
 
         #stash module config params and trainable params
         propertynames,values=configvalues_totensorlist(module)
-        epstensor= torch.tensor([eps], dtype=torch.float32, device= x.device) 
+        epstensor= torch.tensor([eps], dtype=torch.float32, device= x.device)
 
         if module.bias is None:
           bias=None
@@ -1307,14 +1303,14 @@ class linearlayer_eps_wrapper_fct(torch.autograd.Function):
         with respect to the output, and we need to compute the gradient of the loss
         with respect to the input.
         """
-        
+
         #print('len(grad_output)',len(grad_output),grad_output[0].shape)
 
         input_, weight, bias, epstensor, *values  = ctx.saved_tensors
         # print('retrieved', len(values))
         #######################################################################
         # reconstruct dictionary of config parameters
-        def tensorlist_todict(values): 
+        def tensorlist_todict(values):
             propertynames=['in_features','out_features']
             # idea: paramsdict={ n: values[i]  for i,n in enumerate(propertynames)  } # but needs to turn tensors to ints or tuples!
             paramsdict={}
@@ -1338,7 +1334,7 @@ class linearlayer_eps_wrapper_fct(torch.autograd.Function):
         else:
           module=nn.Linear( **paramsdict, bias=True )
           module.bias= torch.nn.Parameter(bias)
-                
+
         #print('conv2dconstr')
         module.weight= torch.nn.Parameter(weight)
 
@@ -1357,7 +1353,7 @@ class sum_stacked2(nn.Module):
 
     @staticmethod
     def forward(x): # from X=torch.stack([X0, X1], dim=0)
-        assert( x.shape[0]==2 )    
+        assert( x.shape[0]==2 )
         return torch.sum(x,dim=0)
 
 
@@ -1379,7 +1375,7 @@ class eltwisesum_stacked2_eps_wrapper_fct(torch.autograd.Function): # to be used
         #stash module config params and trainable params
         #propertynames,values=configvalues_totensorlist(conv2dclass)
 
-        epstensor= torch.tensor([eps], dtype=torch.float32, device= stackedx.device) 
+        epstensor= torch.tensor([eps], dtype=torch.float32, device= stackedx.device)
         ctx.save_for_backward(stackedx, epstensor )
         return module.forward(stackedx)
 
@@ -1389,7 +1385,7 @@ class eltwisesum_stacked2_eps_wrapper_fct(torch.autograd.Function): # to be used
         stackedx,epstensor  = ctx.saved_tensors
         #######################################################################
         # reconstruct dictionary of config parameters
-        def tensorlist_todict(values): 
+        def tensorlist_todict(values):
             propertynames=[]
             paramsdict={}
             return paramsdict
@@ -1613,13 +1609,13 @@ class tensorbiased_linearlayer_eps_wrapper_fct(torch.autograd.Function):
               # convert it into tensor
               # has no treatment for booleans yet
               if isinstance(v, int):
-                v=  torch.tensor([v], dtype=torch.int32, device= x.device) 
+                v=  torch.tensor([v], dtype=torch.int32, device= x.device)
               elif isinstance(v, tuple):
                 ################
                 ################
                 # FAILMODE: if it is not a tuple of ints but e.g. a tuple of floats, or a tuple of a tuple
-    
-                v= torch.tensor(v, dtype=torch.int32, device= x.device)     
+
+                v= torch.tensor(v, dtype=torch.int32, device= x.device)
               else:
                 print('v is neither int nor tuple. unexpected')
                 exit()
@@ -1630,7 +1626,7 @@ class tensorbiased_linearlayer_eps_wrapper_fct(torch.autograd.Function):
 
         #stash module config params and trainable params
         propertynames,values=configvalues_totensorlist(module)
-        epstensor= torch.tensor([eps], dtype=torch.float32, device= x.device) 
+        epstensor= torch.tensor([eps], dtype=torch.float32, device= x.device)
 
         #if module.bias is None:
         #  bias=None
@@ -1652,14 +1648,14 @@ class tensorbiased_linearlayer_eps_wrapper_fct(torch.autograd.Function):
         with respect to the output, and we need to compute the gradient of the loss
         with respect to the input.
         """
-        
+
         #print('len(grad_output)',len(grad_output),grad_output[0].shape)
 
         input_, weight, biastensor, epstensor, *values  = ctx.saved_tensors
         print('retrieved', len(values))
         #######################################################################
         # reconstruct dictionary of config parameters
-        def tensorlist_todict(values): 
+        def tensorlist_todict(values):
             propertynames=['in_features','out_features']
             # idea: paramsdict={ n: values[i]  for i,n in enumerate(propertynames)  } # but needs to turn tensors to ints or tuples!
             paramsdict={}
@@ -1716,7 +1712,7 @@ class posnegconv_tensorbiased(nn.Module):
 
       #self.negconv=self._clone_module(conv)
       #self.negconv.weight= torch.nn.Parameter( conv.weight.data.clone().clamp(max=0) ).to(conv.weight.device)
-    
+
 
       if True==ignorebias:
         self.posconv.inputfornewbias=None
@@ -1760,13 +1756,13 @@ class tensorbiasedconv2d_beta0_wrapper_fct(torch.autograd.Function):
               # convert it into tensor
               # has no treatment for booleans yet
               if isinstance(v, int):
-                v=  torch.tensor([v], dtype=torch.int32, device= conv2dclass.weight.device) 
+                v=  torch.tensor([v], dtype=torch.int32, device= conv2dclass.weight.device)
               elif isinstance(v, tuple):
                 ################
                 ################
                 # FAILMODE: if it is not a tuple of ints but e.g. a tuple of floats, or a tuple of a tuple
-    
-                v= torch.tensor(v, dtype=torch.int32, device= conv2dclass.weight.device)     
+
+                v= torch.tensor(v, dtype=torch.int32, device= conv2dclass.weight.device)
               else:
                 print('v is neither int nor tuple. unexpected')
                 exit()
@@ -1782,7 +1778,7 @@ class tensorbiasedconv2d_beta0_wrapper_fct(torch.autograd.Function):
           bias=None
         else:
           bias= tensorbiasedclass.baseconv.bias.data.clone()
-  
+
         if tensorbiasedclass.inputfornewbias is None:
           inputfornewbias= None
         else:
@@ -1804,14 +1800,14 @@ class tensorbiasedconv2d_beta0_wrapper_fct(torch.autograd.Function):
         with respect to the output, and we need to compute the gradient of the loss
         with respect to the input.
         """
-        
+
         #print('len(grad_output)',len(grad_output),grad_output[0].shape)
 
         input_, conv2dweight, conv2dbias, newweight, inputfornewbias,lrpignorebiastensor, *values  = ctx.saved_tensors
         print('retrieved', len(values))
         #######################################################################
         # reconstruct dictionary of config parameters
-        def tensorlist_todict(values): 
+        def tensorlist_todict(values):
             propertynames=['in_channels', 'out_channels', 'kernel_size', 'stride', 'padding', 'dilation', 'groups']
             # idea: paramsdict={ n: values[i]  for i,n in enumerate(propertynames)  } # but needs to turn tensors to ints or tuples!
             paramsdict={}
@@ -1835,7 +1831,7 @@ class tensorbiasedconv2d_beta0_wrapper_fct(torch.autograd.Function):
         else:
           conv2dclass=nn.Conv2d( **paramsdict, bias=True )
           conv2dclass.bias= torch.nn.Parameter(conv2dbias)
-                
+
         #print('conv2dconstr')
         conv2dclass.weight= torch.nn.Parameter(conv2dweight)
 
@@ -1902,7 +1898,7 @@ class l2_lrp(torch.autograd.Function):
     def forward(ctx, conv_features, model, pno):
         pno = torch.tensor([pno], dtype=torch.int32)
         ctx.save_for_backward(conv_features, model.prototype_vectors, pno)  # *values unpacks the list
-        print('l2 custom forward')
+        #print('l2 custom forward')
         x2 = conv_features ** 2
         x2_patch_sum = F.conv2d(input=x2, weight=model.ones)
 
@@ -1976,7 +1972,7 @@ class l2_lrp(torch.autograd.Function):
         with respect to the output, and we need to compute the gradient of the loss
         with respect to the input.
         """
-        print("l2 custom backward")
+        #print("l2 custom backward")
         conv, prototypes, pno = ctx.saved_tensors
         pno = pno.item()
         i = conv.shape[2]
@@ -2031,7 +2027,7 @@ class l2_lrp_class(torch.autograd.Function):
     def forward(ctx, conv_features, model):
         # pno = torch.tensor([pno], dtype=torch.int32)
         ctx.save_for_backward(conv_features, model.prototype_vectors)  # *values unpacks the list
-        print('l2 custom forward')
+        #print('l2 custom forward')
         x2 = conv_features ** 2
         x2_patch_sum = F.conv2d(input=x2, weight=model.ones)
 
@@ -2105,7 +2101,7 @@ class l2_lrp_class(torch.autograd.Function):
         with respect to the output, and we need to compute the gradient of the loss
         with respect to the input.
         """
-        print("l2 custom backward")
+        #print("l2 custom backward")
         conv, prototypes = ctx.saved_tensors
         # pno = pno.item()
         i = conv.shape[2]

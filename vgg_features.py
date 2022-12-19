@@ -301,7 +301,7 @@ class VGGCanonized(VGG_features):
         success = iteratset(self, components, value)
         return success
 
-    def copyfrom(self, net, lrp_params, lrp_layer2method):
+    def copyfrom(self, net, lrp_params, lrp_layer2method, verbose: bool = True):
         """ Copy layer parameters and wrap everything for LRP
 
         :param net: Source network
@@ -354,7 +354,6 @@ class VGGCanonized(VGG_features):
                 m = copy.deepcopy(last_src_module)
                 wrapped = get_lrpwrapperformodule(m, lrp_params, lrp_layer2method,
                                                   thisis_inputconv_andiwant_zbeta=thisis_inputconv_andiwant_zbeta)
-                print("here")
                 if not self.setbyname(last_src_module_name, wrapped):
                     raise Modulenotfounderror(
                         "could not find module " + last_src_module_name + " in target net to copy")
@@ -368,10 +367,11 @@ class VGGCanonized(VGG_features):
                     raise Modulenotfounderror("could not find module " + target_module_name + " in target net to copy")
                 updated_layers_names.append(target_module_name)
 
-        for target_module_name, target_module in self.named_modules():
-            if target_module_name not in updated_layers_names:
-                if not target_module_name.endswith('.module'):
-                    print('not updated:', target_module_name)
+        if verbose:
+            for target_module_name, target_module in self.named_modules():
+                if target_module_name not in updated_layers_names:
+                    if not target_module_name.endswith('.module'):
+                        print('not updated:', target_module_name)
 
 
 def vgg11_canonized(**kwargs):

@@ -181,7 +181,7 @@ def prp_canonize_model(ppnet,base_arch, device):
         'sum_stacked2': eltwisesum_stacked2_eps_wrapper_fct
     }
 
-    model.copyfrom(ppnet.features, lrp_params=lrp_params_def1, lrp_layer2method=lrp_layer2method)
+    model.copyfrom(ppnet.features, lrp_params=lrp_params_def1, lrp_layer2method=lrp_layer2method, verbose=False)
     model = model.to(device)
     ppnet.features = model
 

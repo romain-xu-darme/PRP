@@ -450,7 +450,7 @@ def resnet18_canonized(pretrained=False, progress=True, **kwargs):
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
     """
-    return _resnet_canonized('resnet18', BasicBlock_fused, [2, 2, 2, 2], pretrained, progress, **kwargs)
+    return _resnet_canonized('resnet18', BasicBlock_fused, [2, 2, 2, 2], **kwargs)
 
 
 def resnet50_canonized(pretrained=False, progress=True, **kwargs):
@@ -460,7 +460,7 @@ def resnet50_canonized(pretrained=False, progress=True, **kwargs):
         pretrained (bool): If True, returns a model pre-trained on ImageNet
         progress (bool): If True, displays a progress bar of the download to stderr
     """
-    return _resnet_canonized('resnet50', Bottleneck_fused, [3, 4, 6, 3], pretrained, progress, **kwargs)
+    return _resnet_canonized('resnet50', Bottleneck_fused, [3, 4, 6, 3], **kwargs)
 
 
 def resnet34_canonized(pretrained=False, progress=True, **kwargs):
